@@ -1,13 +1,10 @@
 #include "../include/esp8266/Arduino.h"
-#include "../include/libraries/ESP8266WiFi/src/WiFiClient.h"
+#include "..//include/libraries/ESP8266WiFi/src/WiFiClient.h"
 #include "../include/libraries/ESP8266WiFi/src/ESP8266WiFi.h"
 #include "../.pio/libdeps/esp01_1m/OneWire/OneWire.h"
 #include "../.pio/libdeps/esp01_1m/DallasTemperature/DallasTemperature.h"
 #include "../include/esp8266/wl_definitions.h"
 #include "../.pio/libdeps/esp01_1m/ESP_EEPROM/src/ESP_EEPROM.h"
-
-const char* ssid2 = "RIZKI";
-const char* pass2 = "strawberry256";
 
 const int oneWireBus = 2;
 
@@ -18,103 +15,124 @@ DallasTemperature tempSens(&oneWire);
 DeviceAddress tempDev;
 
 class credentials2{
+private:
+    char ssid[15] = {0};
+    char pass[15] = {0};
+
+    size_t s_ssid = 0;
+    size_t s_pass = 0;
 public:
-    char* ssid;
-    char* pass;
-//
-//
     credentials2(){}
     credentials2(String ssid, String pass){
-        int s = ssid.length();
-        char* buf = new char [s];
-        ssid.toCharArray(buf, s+1);
-        this->ssid = buf;
+        changeCredentials(ssid, pass);
+    }
 
-        s = pass.length();
-        Serial.println(ssid);
-        Serial.println(pass);
+    int writeAndCommit(){
+        char buf[50];
+        snprintf(buf, 50, "\nCOMMIT\nssid: %s\npass: %s\n", this->ssid, this->pass);
         Serial.println(buf);
-        buf = new char [s];
-        pass.toCharArray(buf, s+1);
-        this->pass = buf;
+        EEPROM.put(0, ssid);
+        EEPROM.put(s_ssid+1, pass);         // offset 1 for \0
+        return EEPROM.commit();
+    }
+
+    void calcLen(){
+        this->s_ssid = 0;
+        this->s_pass = 0;
+        int i = 0;
+        while((char)EEPROM.read(i) != '\0'){
+            s_ssid++;
+            i++;
+        }
+        i = 0;
+        while((char)EEPROM.read(i+s_ssid+1) != '\0'){
+            s_pass++;
+            i++;
+        }
+    }
+
+    char* getSsid(){
+        if (this->ssid[0] == '\0') return NULL;
+        else return ssid;
+    }
+
+    char* getPass(){
+        if (this->pass[0] == '\0') return NULL;
+        else return pass;
+    }
+
+    void changeCredentials(String ssid, String pass){
+        reset();
+
+        s_ssid = ssid.length();
+        s_pass = pass.length();
+
+        char* buf = &this->ssid[0];
+        ssid.toCharArray(buf, s_ssid+1);
+        buf[s_ssid] = '\0';
+
+        buf = &this->pass[0];
+        pass.toCharArray(buf, s_pass+1);
+        buf[s_pass] = '\0';
+
+        char b[50];
+        snprintf(b, 50, "changed into: %s, %s", this->ssid, this->pass);
+        Serial.println(b);
+
+    }
+
+    void reset(){
+        for (int i = 0 ; i < EEPROM.length() ; i++) {
+            EEPROM.write(i, 0);
+        }
+
+        EEPROM.commit();
+    }
+
+    void EepromRead(){
+        Serial.print("\nssid & pass ");
+        Serial.print(this->ssid);
+        Serial.print(" : ");
+        Serial.println(this->pass);
+        calcLen();
+
+        for(int i=0; i<s_ssid; i++){
+            this->ssid[i] = EEPROM.read(i);
+        }
+        for(int i=0; i<s_pass; i++){
+            this->pass[i] = EEPROM.read(s_ssid+1+i);    // offset 1 for \0
+        }
+        char buf[80];
+        snprintf(buf, 80, "\nGET\nssid len: %i\npass len: %i\nssid: %s\npass: %s\n", s_ssid, s_pass, this->ssid, this->pass);
         Serial.println(buf);
     }
-//
 };
 
 
-
+credentials2 creden;
 
 void setup() {
-//    Serial.begin(115200);
-//    while(!Serial);
-//    EEPROM.begin(32); // looks like 16 bytes is the minimum
-//    EEPROM.put(0, 1234); // first parameter sets the position in the buffer, second the value
-//    EEPROM.put(4, 4567); // first parameter sets the position in the buffer, second the value
-//    boolean res = EEPROM.commit();
-//    Serial.println(res); // should print 1 (true) if commit worked as expected
-//    int myVar;
-//    int myVar2;
-//    EEPROM.get(0, myVar);
-//    EEPROM.get(4, myVar2);
-//    Serial.println(myVar);
-//    Serial.println(myVar2);
-    char* ssid;
-    char* pass;
-    int ssidlen;
     EEPROM.begin(32);
     Serial.begin(115200);
     pinMode(oneWireBus, INPUT);
 
-    delay(1000);
-    Serial.println();
-
-    Serial.println();
-    Serial.println("SSID before: ");
-    Serial.println("pass before: ");
-    Serial.println();
-
-    pinMode(oneWireBus, INPUT);
-
-    delay(1000);
+    creden.EepromRead();
 
     if(true){
-//        creden = credentials2("RIZKI", "strawberry256");
-        Serial.println("Writing...");
-        String ssid = "RIZKI";
-        char* buf = new char[ssid.length()];
-        ssid.toCharArray(buf, ssid.length()+1);
-        Serial.println("Loop");
-        for (int i = 0; i < ssid.length(); ++i) {
-            char a = EEPROM.read(0+i);
-            Serial.println(a);
-        }
-        Serial.println("Loop End");
-        EEPROM.put(0, buf);
-        Serial.println("buf1");
+        creden.changeCredentials("test", "testPass");
+        char buf[25];
+        snprintf(buf, sizeof buf, "Write code: %i\n", creden.writeAndCommit());
         Serial.println(buf);
-        String pass = "strawberry256";
-        buf = new char[pass.length()];
-        pass.toCharArray(buf, pass.length()+1);
-        EEPROM.put(ssid.length()+1, buf);
-        Serial.println("buf2");
-        Serial.println(buf);
-        delay(500);
-        int res = EEPROM.commit();
-        Serial.println(res);
-        ssidlen = ssid.length();
     }
-    EEPROM.get(0, ssid);
-    delay(100);
-    EEPROM.get(ssidlen+1, pass);
-    delay(100);
-    Serial.println("Connecting to ssid: ");
-    delay(100);
-    Serial.print(ssid);
-    Serial.println("Pass: ");
-    delay(100);
-    Serial.print(pass);
-    WiFi.begin(ssid, pass);
+
+    creden.EepromRead();
+
+    Serial.print("\nConnecting to ssid: ");
+    Serial.println(creden.getSsid());
+    Serial.print("Pass: ");
+    Serial.println(creden.getPass());
+    WiFi.begin(creden.getSsid(), creden.getPass());
+
     while (WiFi.status() != WL_CONNECTED){
         Serial.print("--");
         delay(1000);
@@ -134,10 +152,11 @@ void setup() {
 
 // the loop function runs over and over again forever
 void loop() {
-//    tempSens.requestTemperatures();
-//    float tempC = tempSens.getTempCByIndex(0);
-//    Serial.println(tempC);
-//    Serial.println(" Temp");
-//    delay(6000);
+    tempSens.requestTemperatures();
+    float tempC = tempSens.getTempCByIndex(0);
+    Serial.println(tempC);
+    Serial.print(" Temp");
+    Serial.println();
+    delay(6000);
 }
 
