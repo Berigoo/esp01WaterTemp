@@ -3,6 +3,7 @@
   <component name="Arduino Project Settings">
     <option name="afterSuccessfulBuild" value="false" />
     <option name="baudRate" value="115200" />
+    <option name="immediateSend" value="false" />
     <option name="port" value="/dev/ttyUSB0" />
     <option name="serialEndOfLine" value="3" />
   </component>

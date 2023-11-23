@@ -106,37 +106,81 @@ public:
         snprintf(buf, 80, "\nGET\nssid len: %i\npass len: %i\nssid: %s\npass: %s\n", s_ssid, s_pass, this->ssid, this->pass);
         Serial.println(buf);
     }
+
+    int connectToWifi(){
+        if(WiFi.status() == WL_CONNECTED) {
+            WiFi.disconnect(false);
+            delay(2000);
+        }
+
+        if(this->ssid[0] != '\0'){
+            char buf[40];
+            snprintf(buf, 40, "\nConnect to: %s, %s", this->ssid, this->pass);
+            Serial.println(buf);
+            WiFi.begin(this->ssid, this->pass);
+            while (WiFi.status() != WL_CONNECTED){
+                Serial.print(".");
+                delay(1000);
+                if(Serial.available()>0){
+                    char buf[Serial.available()];
+                    int i = 0;
+                    while(1){
+                        buf[i] = (char)Serial.read();
+                        if(Serial.available() <= 0) break;
+                        i++;
+                    }
+                    Serial.println(buf);
+                    char* tok = strtok(buf, " ");
+                    char* first = tok; first[strlen(first)-2] = '\0'; //removing unwanted char
+                    if(strcmp(first, "wifi")){
+                        Serial.println("Entering...");
+                        tok = strtok(0, " ");
+                        char* sec = tok; sec[strlen(sec)] = '\0';
+                        String ssid = sec;
+                        tok = strtok(0, " ");
+                        char* third = tok; third[strlen(third)-6] = '\0';
+                        String pass = third;
+
+                        changeCredentials(ssid, pass);
+                        writeAndCommit();
+                        WiFi.begin(this->ssid, this->pass);
+                    }
+                }
+            }
+            Serial.println("Connected!");
+            return 1;
+        }
+        return 0;
+    }
+
+    void changeCredentials(String token) {       //handle 'wifi' command
+        Serial.println(token);
+        int first = token.indexOf(" ");
+        int sec = token.indexOf(" ", first+1);
+
+        String ssid = token.substring(first+1, sec);
+        String pass = token.substring(sec+1, token.length()-2);
+
+        changeCredentials(ssid, pass);
+        writeAndCommit();
+        connectToWifi();
+    }
 };
 
 
 credentials2 creden;
 
 void setup() {
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
     EEPROM.begin(32);
     Serial.begin(115200);
     pinMode(oneWireBus, INPUT);
 
     creden.EepromRead();
 
-    if(true){
-        creden.changeCredentials("test", "testPass");
-        char buf[25];
-        snprintf(buf, sizeof buf, "Write code: %i\n", creden.writeAndCommit());
-        Serial.println(buf);
-    }
+    creden.connectToWifi();
 
-    creden.EepromRead();
-
-    Serial.print("\nConnecting to ssid: ");
-    Serial.println(creden.getSsid());
-    Serial.print("Pass: ");
-    Serial.println(creden.getPass());
-    WiFi.begin(creden.getSsid(), creden.getPass());
-
-    while (WiFi.status() != WL_CONNECTED){
-        Serial.print("--");
-        delay(1000);
-    }
     Serial.println(WiFi.localIP());
 
     Serial.println("Locating devices....");
@@ -154,9 +198,28 @@ void setup() {
 void loop() {
     tempSens.requestTemperatures();
     float tempC = tempSens.getTempCByIndex(0);
-    Serial.println(tempC);
-    Serial.print(" Temp");
-    Serial.println();
+    Serial.print(tempC);
+    Serial.println(" Temp");
+
+    if(Serial.available() > 0){
+        char buf[Serial.available()];
+        String buff;
+        while (Serial.available()>0){
+            while(1){
+                buff.concat((char)Serial.read());
+                if(Serial.available() <= 0) break;
+            }
+        }
+        Serial.print("Retrieved Msg: ");
+        Serial.println(buff);
+        Serial.println(buff.substring(0, buff.indexOf(" ")));
+        Serial.println(buff);
+        if(buff.substring(0, buff.indexOf(" ")) == "wifi"){
+            Serial.println("Enter");
+            creden.changeCredentials(buff);
+        }
+    }
+
     delay(6000);
 }
 
