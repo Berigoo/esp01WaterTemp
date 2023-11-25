@@ -1,6 +1,8 @@
-#include "../include/esp8266/Arduino.h"
-#include "..//include/libraries/ESP8266WiFi/src/WiFiClient.h"
-#include "../include/libraries/ESP8266WiFi/src/ESP8266WiFi.h"
+#include "../lib/cores/Arduino.h"
+#include "../lib/ESP8266WiFi/src/WiFiClient.h"
+#include "../lib/ESP8266WiFi/src/ESP8266WiFi.h"
+#include "../.pio/libdeps/esp01_1m/ESP Async WebServer/src/ESPAsyncWebServer.h"
+#include "../.pio/libdeps/esp01_1m/ESPAsyncTCP/src/ESPAsyncTCP.h"
 #include "../.pio/libdeps/esp01_1m/OneWire/OneWire.h"
 #include "../.pio/libdeps/esp01_1m/DallasTemperature/DallasTemperature.h"
 #include "../include/esp8266/wl_definitions.h"
@@ -8,11 +10,14 @@
 
 const int oneWireBus = 2;
 
-WiFiClient client;
 
 OneWire oneWire(oneWireBus);
 DallasTemperature tempSens(&oneWire);
 DeviceAddress tempDev;
+
+AsyncWebServer server(80);
+WiFiClient client;
+const char* PARAM_MESSAGE = "test";
 
 class credentials2{
 private:
@@ -21,6 +26,7 @@ private:
 
     size_t s_ssid = 0;
     size_t s_pass = 0;
+
 public:
     credentials2(){}
     credentials2(String ssid, String pass){
@@ -166,9 +172,72 @@ public:
         connectToWifi();
     }
 };
+class esp01{
+    const char* APssid = "ESP01-WaterTemp";
+    IPAddress localIp = IPAddress(192, 168, 10, 2);
+    IPAddress gateaway = IPAddress(192, 168, 10, 1);
+    IPAddress subnet = IPAddress(255, 255, 255, 0);
 
+    credentials2* cred;
+public:
+    esp01(credentials2* cred){
+        this->cred = cred;
+    }
+
+    void connectToWifi(){
+        if(WiFi.status() == WL_CONNECTED) {
+            WiFi.disconnect(false);
+            delay(2000);
+        }
+
+        createAP();
+        createServer();
+        while(WiFi.status() != WL_CONNECTED){
+            delay(100);
+        }
+        server.end();
+        WiFi.softAPdisconnect();
+        delay(1000);
+        this->cred->writeAndCommit();
+    }
+
+    void createAP(){
+        if(!WiFi.softAPConfig(localIp, gateaway, subnet)){
+            Serial.println("STA FAiled to configure!");
+        }
+        WiFi.mode(WIFI_AP_STA);
+        Serial.print("Creating AP with ssid: ");
+        Serial.println(APssid);
+        WiFi.softAP(APssid);
+        delay(500);
+    }
+
+    void createServer(){
+        server.on("/setwifi", HTTP_POST, [&](AsyncWebServerRequest* request){
+            Serial.println("Received Data!");
+            if(request->hasArg("ssid") && request->hasArg("passwd")){
+                String ssid = request->getParam("ssid", true)->value();
+                String pass = request->getParam("passwd", true)->value();
+                this->cred->changeCredentials(ssid, pass);
+
+                WiFi.begin(this->cred->getSsid(), this->cred->getPass());
+
+                request->send(200);
+            }else{
+                request->send(500);
+            }
+        });
+        server.onNotFound([](AsyncWebServerRequest* request){
+            request->send(404, "text/plain", "not found");
+        });
+
+        server.begin();
+        Serial.println("Server created...");
+    }
+};
 
 credentials2 creden;
+esp01 esp(&creden);
 
 void setup() {
     WiFi.setAutoReconnect(true);
@@ -177,9 +246,11 @@ void setup() {
     Serial.begin(115200);
     pinMode(oneWireBus, INPUT);
 
+    creden.reset();
     creden.EepromRead();
+    delay(1000);
 
-    creden.connectToWifi();
+    esp.connectToWifi();
 
     Serial.println(WiFi.localIP());
 
@@ -200,25 +271,6 @@ void loop() {
     float tempC = tempSens.getTempCByIndex(0);
     Serial.print(tempC);
     Serial.println(" Temp");
-
-    if(Serial.available() > 0){
-        char buf[Serial.available()];
-        String buff;
-        while (Serial.available()>0){
-            while(1){
-                buff.concat((char)Serial.read());
-                if(Serial.available() <= 0) break;
-            }
-        }
-        Serial.print("Retrieved Msg: ");
-        Serial.println(buff);
-        Serial.println(buff.substring(0, buff.indexOf(" ")));
-        Serial.println(buff);
-        if(buff.substring(0, buff.indexOf(" ")) == "wifi"){
-            Serial.println("Enter");
-            creden.changeCredentials(buff);
-        }
-    }
 
     delay(6000);
 }
