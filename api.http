@@ -1,0 +1,8 @@
+### connect to esp AccessPoint first with ssid 'ESP01-WaterTemp', then do request
+
+POST http://192.168.10.2/setwifi
+Content-Type: application/x-www-form-urlencoded
+
+ssid=your_ssid&passwd=your_ssid_password
+
+###

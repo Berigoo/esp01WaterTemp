@@ -119,68 +119,6 @@ public:
     size_t getPassSize(){
         return s_pass;
     }
-
-//
-//    int connectToWifi(){
-//        int counter = 0;
-//        if(WiFi.status() == WL_CONNECTED) {
-//            WiFi.disconnect(false);
-//            delay(2000);
-//        }
-//
-//
-//
-//        if(this->ssid[0] != '\0'){
-//            char buf[40];
-//            snprintf(buf, 40, "\nConnect to: %s, %s", this->ssid, this->pass);
-//            Serial.println(buf);
-//            WiFi.begin(this->ssid, this->pass);
-//            while (WiFi.status() != WL_CONNECTED){
-//                Serial.print(".");
-//                delay(1000);
-//                if(Serial.available()>0){
-//                    char buf[Serial.available()];
-//                    int i = 0;
-//                    while(1){
-//                        buf[i] = (char)Serial.read();
-//                        if(Serial.available() <= 0) break;
-//                        i++;
-//                    }
-//                    Serial.println(buf);
-//                    char* tok = strtok(buf, " ");
-//                    char* first = tok; first[strlen(first)-2] = '\0'; //removing unwanted char
-//                    if(strcmp(first, "wifi")){
-//                        Serial.println("Entering...");
-//                        tok = strtok(0, " ");
-//                        char* sec = tok; sec[strlen(sec)] = '\0';
-//                        String ssid = sec;
-//                        tok = strtok(0, " ");
-//                        char* third = tok; third[strlen(third)-6] = '\0';
-//                        String pass = third;
-//
-//                        changeCredentials(ssid, pass);
-//                        writeAndCommit();
-//                        WiFi.begin(this->ssid, this->pass);
-//                    }
-//                }
-//            }
-//            Serial.println("Connected!");
-//            return 1;
-//        }
-//        return 0;
-//    }
-//
-    void changeCredentials(String token) {       //handle 'wifi' command
-        Serial.println(token);
-        int first = token.indexOf(" ");
-        int sec = token.indexOf(" ", first+1);
-
-        String ssid = token.substring(first+1, sec);
-        String pass = token.substring(sec+1, token.length()-2);
-
-        changeCredentials(ssid, pass);
-        writeAndCommit();
-    }
 };
 class esp01{
     const char* APssid = "ESP01-WaterTemp";
